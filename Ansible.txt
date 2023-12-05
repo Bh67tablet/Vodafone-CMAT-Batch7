@@ -1,0 +1,934 @@
+# sudo su –
+
+Let’s us Install Ansible on the Master Node:
+********************************************************
+# ansible --version
+
+Setup Ansible:
+
+#  sudo apt-get install -y software-properties-common
+#  sudo apt-add-repository ppa:ansible/ansible
+#  sudo apt-get update
+#  sudo apt-get install -y ansible
+
+Ansible Installation is complete now on the Master node.
+
+OPEN SECURE SHELL CONNECTION – SSH Connection setup On Master Node
+================================================
+Step 1:
+
+Create a new user on the terminal:
+
+# adduser ansiuser
+
+Enter New password :  ansiuser
+Retype new Password: ansiuser
+
+Don’t enter any value for fullname, room number, workphone, homephone other
+
+Just keep pressing enter key.	
+
+And give Y  for 
+
+Is the information correct ? [Y/n]  : y
+
+User will now be created.
+===============================================
+
+Step 2:
+Open the below file by executing below command:
+#  vim /etc/ssh/sshd_config
+
+Press i 
+Scroll down until you find PasswordAuthentication no
+> Change value of PasswordAuthentication  to yes
+Save the file by pressing ESC key and then enter :wq! and press enter key
+
+Step 3:
+Add ansiuser in sudoers files and give all permission
+# vim /etc/sudoers
+Press i
+Scroll down until your find : # User privilege specification
+Now enter below line under  root    ALL=(ALL:ALL) ALL
+ansiuser ALL=NOPASSWD: ALL
+Save the file.
+
+Step 4:
+Execute below command :
+#    systemctl restart sshd
+
+
+Repeat these steps (1 to 4)  on Worker 1 and worker 2
+================================
+Step 1:
+
+Create a new user on the terminal:
+
+# adduser ansiuser
+
+Enter New password :  ansiuser
+Retype new Password: ansiuser
+
+Don’t enter any value for fullname, room number, workphone, homephone other
+
+Just keep pressing enter key.	
+
+And give Y  for 
+
+Is the information correct ? [Y/n]  : y
+
+Step 2:
+Open the below file by executing below command:
+#  vim /etc/ssh/sshd_config
+
+
+Press i 
+Scroll down until you find PasswordAuthentication no
+	Change value of PasswordAuthentication  to yes
+Save the file.
+
+
+Step 3:
+Add ansiuser in sudoers files and give all permission
+# vim /etc/sudoers
+Press i
+Scroll down until your find : # User privilege specification
+Now enter below line under  root    ALL=(ALL:ALL) ALL
+ansiuser ALL=NOPASSWD: ALL
+
+Step 4:
+# systemctl restart sshd
+==========================================================
+
+Generate SSH key on Master machine and copy SSH key on worker machine
+All These Steps will be executed on Master Machine only
+**********************
+
+Step 1: 
+Change user from root to ansiuser
+#   su – ansiuser
+
+Step 2:
+Generate ssh key on Master node for ansiuser
+Execute below command:
+# ssh-keygen
+
+press enter
+press enter
+press enter
+
+ssh key will be generated
+
+Now lets copy the ssh key of master machine to Worker machine1 and worker machine 2
+Execute the below command on master machine.
+Syntax:
+ ssh-copy-id -i ansiuser@privateipWorker1
+
+#  ssh-copy-id -i ansiuser@172.31.26.98
+
+Repeat the same command to copy ssh key on Worker2 also.
+
+======================================================
+
+Ansible Inventory File Set up:
+==================================================================================
+By default the inventory file for ansible will be available at /etc/ansible directory
+Demo:
+
+#  cd /etc/ansible
+# ls
+You will see the hosts file
+Open the hosts file and create host group name as show below
+
+[worker1]
+privateipWorker1
+
+[worker2]
+PrivateipofWorker2
+
+[webserver]
+Privateipworker1
+Privateipworker2
+
+Save the host file.
+
+Let’s validate if ansible ad-hoc commands are getting executed using the host group created above.
+
+Validate if ansible can ping Worker1 in lab
+#  ansible worker1 -m ping
+Validate if ansible can ping Worker2 in lab
+
+# ansible worker2 -m ping
+
+# ansible webserver -m ping
+
+Great! Your setup for Ansible Controller machine and Ansible Host machines is now Complete.
+
+===================================================================
+
+The default location of Ansible inventory file is /etc/ansible, however we can create ansible inventory file in any other directory also.
+Let’s see how we can create Ansible Inventory and ansible.cfg file in different location and use it for ansible ad-hoc command and playbooks:
+
+Demo:
+Currently we are logged in as ansiuser.
+Lets create an inventory file in home directory of ansiuser which is /home/ansiuser
+
+# cd
+# pwd
+
+Lets create a file with name as myinventory and create host group inside it
+
+# vim myinventory
+Press i to insert below data
+
+[webserver]
+172.31.26.98
+172.31.22.35
+
+Save the file.
+
+Execute adhoc command using the current inventory file
+Syntax:
+ansible -i /pathtoinventoryfile  groupname -m modulename
+
+execute this command:
+#   ansible -i /home/ansiuser/myinventory webserver -m ping
+
+
+Let’s see a demo where we make this inventory file as your default inventory file.
+We will create a new ansible.cfg file in the same directory of ansiuser and set up the inventory file location.
+
+#   vim ansible.cfg
+Press i  and enter below data
+[defaults]
+inventory = /home/ansiuser/myinventory
+
+Save the file.
+
+Now execute the adhoc command without giving the path of inventory file.
+
+# ansible webserver -m ping
+
+
+Note: Ansible always looks in the current directory for inventory file and then checks for inventory file in /etc/ansible directory.
+==================================================
+
+Ad-hoc commands Demo:
+
+1.	ansible webserver -m command -a "free -h"
+2.	ansible webserver -m command -a "whoami"
+3.	ansible webserver -m file -a "name=/tmp/testdir state=directory"
+4.	ansible webserver -m command -a "ls -al /tmp"
+5.	ansible webserver -m file -a "name=/tmp/testdir state=absent"
+6.	ansible webserver -m file -a "name=/tmp/testfile state=touch"
+7.	ansible webserver -m file -a "name=/tmp/testfile state=absent"
+
+====================================
+
+Playbooks Demo
+======================================
+
+Playbook1.yml : Debug module
+============================
+# vim playbookdebug.yml
+- hosts: webserver
+  tasks:
+  - name: Print a message on hostserver
+    debug: msg="Welcome to Ansible Playbook"
+
+Save the file.
+
+Execute the playbook:
+# ansible-playbook playbookdebug.yml --syntax-check
+# ansible-playbook playbookdebug.yml
+
+
+Playbook2.yml: Register Demo
+=========================
+
+Step 1: Create playbook that will execute a command on the hostserver:
+
+# vim playbookregister.yml
+- hosts: webserver
+  tasks:
+  - name: Execute a command on the host
+    command: hostname -s
+    
+Save the file and execute
+# ansible-playbook playbookregister.yml
+
+The playbook is executed but we are not able to see the output of the command. We will now save the output of a command in a variable using register module.
+Again open the playbook file:
+
+# vim playbookregister.yml
+
+- hosts: webserver
+  tasks:
+  - name: Execute a command on the host
+    command: hostname -s
+    register: hostname_output
+  - name: show  the hostname_output
+    debug:
+     var: hostname_output
+
+Save the file and execute.
+# ansible-playbook playbookregister.yml
+
+
+
+Before we begin next playbook, lets look at Setup module and Fact variable:
+
+# ansible webserver -m setup
+It gives lot of information
+# ansible webserver -m setup | wc -l
+It will return total number of lines
+# ansible webserver -m setup -a "filter=ansible_memfree_mb"
+It will return value for given ansible variable.
+# ansible webserver -m setup -a "filter=ansible_mem*”
+You can also use wild card in filter to get all values starting eith ansible_mem
+
+
+Playbook3.yml => Fact variables:
+
+Lets write a playbook using ansible fact Variables
+
+# vim playbookdebugVar.yml
+- hosts: webserver
+  tasks:
+  - name: Show Ipaddress of the host servers
+    debug:
+     msg="The ipaddress of host server  is {{ansible_default_ipv4.address}}"
+  - name: print variable
+    debug:
+     var=ansible_default_ipv4.address
+
+# ansible-playbook  playbookdebugVar.yml
+
+
+Playbook 4 -> When Condition:
+==========================================
+
+vim playbookwhen.yml
+
+# vim playbookwhen.yml
+- hosts: webserver
+  tasks:
+  - name: Execute a command on the host
+    command: hostname -s
+    when: (ansible_distribution == "CentOS" and ansible_distribution_major_version == "8") or
+          (ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "20")
+    register: hostname_output
+  - name: show  the hostname_output
+    debug:
+     var: hostname_output.stdout
+
+
+Save the file and execute.
+
+# ansible-playbook playbookwhen.yml
+
+==============================================
+
+
+# vim WhenPlaybook2.yml
+
+- name: Introduction to When Conditions
+  become: true
+  hosts: webserver
+  tasks:
+  - name: Install a git package
+    package: name=git state=present
+    when: (ansible_distribution == "Centos" and ansible_distribution_major_version == "8") or
+          (ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "20")
+
+
+Save the file and execute.
+
+# ansible-playbook playbookwhen.yml
+=========================================
+Custom Variables:
+==================================
+vim Customvariable.yml
+
+- name: Introduction to Custom variables
+  hosts: webserver
+  become: true
+  vars:
+   pkg_name: apache2
+  tasks:
+  - name: Update apt-get repo
+    command: apt-get update
+  - name: Install {{pkg_name}}  package
+    package: name={{pkg_name}} state=present
+  - name: Start the {{pkg_name}} application
+    service: name={{pkg_name}} state=started
+
+
+# ansible-playbook Customvariable.yml
+
+Extra variables value at runtime.
+
+# ansible-playbook Customvariable.yml --extra-vars pkg_name=apache2
+
+=========================================
+
+- name: Introduction to Custom variables
+  hosts: webserver
+  become: true
+  vars_prompt:
+   - name: pkg_name
+     prompt: Enter the package Name
+     private: false
+  tasks:
+  - name: Update apt-get repo
+    command: apt-get update
+  - name: Install {{pkg_name}}  package
+    package: name={{pkg_name}} state=present
+  - name: Start the {{pkg_name}} application
+    service: name={{pkg_name}} state=started
+
+================================================
+varibale with multiple values in a file.
+
+# vim variables.yml
+
+   pkg_name: 
+    - git
+    - apache2
+    - tree
+    - nano
+   dest_path: /var/www/html
+
+Save the file (:wq!)
+
+# vim varsfileplaybook.yml
+
+
+- name: Introduction to variables in a file
+  hosts: webserver
+  become: true
+  vars_files:
+   - variables.yml
+  tasks:
+  - name: Update apt-get repo
+    command: apt-get update
+  - name: Install {{pkg_name[1]}}  package
+    package: name={{pkg_name[1]}} state=present
+  - name: Start the {{pkg_name[1]}} application
+    service: name={{pkg_name[1]}} state=started
+  - name: Deploy a file on apache2 server
+    copy: src=index.html dest={{dest_path}}
+
+save the file (:wq!)
+
+Create an index.html file
+
+# vim index.html
+
+<h1> file from ansible Controller </h1>
+
+Execute the playbook
+
+ansible-playbook varsfileplaybook.yml
+
+======================================
+
+Handlers Demo1:
+
+- name: Introduction to Custom variables
+  hosts: webserver
+  become: true
+  tasks:
+  - name: Update apt-get repo
+    command: apt-get update
+  - name: Install apache2  package
+    package: name=apache2 state=present
+  - name: Start the apache2  application
+    service: name=apache2 state=started
+  - name: Deploy a file on apache2 server
+    copy: src=index.html dest=/var/www/html
+    notify: restart the apache2 application
+  handlers:
+  - name: restart the apache2 application
+    service: name=apache2 state=restarted
+
+=======================================================
+
+Demo 2:
+
+Flush Handlers:
+
+- name: Handlers demo2
+  hosts: webserver
+  become: true
+  tasks:
+  - name: Create a file
+    file: name=/tmp/ansible_file state=touch
+    notify: File creation
+    name: flush handlers for this task
+    meta: flush_handlers
+  - name: startch apache2
+    service: name=apache2 state=started
+    notify: service status
+  - name: update apt-get
+    command: apt-get update
+    notify: Apt update
+  - name: Execute a command
+    command: hostname -s
+    register: output_var
+    notify: print output
+  handlers:
+  - name: service status
+    debug: msg="service is running"
+  - name: File creation
+    debug: msg="File created successfully"
+  - name: Apt update
+    debug: msg="apt updated  successfully"
+  - name: print output
+    debug: var=output_var.stdout
+
+=============================================================
+
+Demo 3: force handlers
+
+- name: Handlers demo2
+  hosts: webserver
+  become: true
+  tasks:
+  - name: Create a file
+    file: name=/tmp/ansible_file state=touch
+    notify: File creation
+  - name: start apache2
+    service: name=apache2 state=started
+    notify: service status
+  - fail:
+  handlers:
+  - name: service status
+    debug: msg="service is running"
+  - name: File creation
+    debug: msg="File created successfully"
+
+
+# ansible-playbook handlersdemo2.yml --force-handlers
+
+==================================
+Playbook 5: Loops
+========================================
+
+Ansible loops and task control:
+
+Write a playbook to install/ setup a LAMP (LinuxApacheMysqlPhp) stack on our Debian/Ubuntu server:
+
+vim playbookloop.yml
+
+- hosts: webserver
+  become: true
+  become_user: root
+  tasks:
+  - name: update apt cache
+    apt: update_cache=yes cache_valid_time=3600
+  - name: Install packages on the host servers
+    package: name={{item}} state=present
+    loop:
+     - apache2
+     - mysql-server
+     - php-mysql
+     - php
+     - libapache2-mod-php
+     - python3-mysqldb
+
+
+# ansible-playbook playbookloop.yml
+
+===========================================
+
+Write a playbook using custom variables and loops:
+
+vim playbookloop2.yml
+
+- hosts: webserver
+  become: true
+  become_user: root
+  vars:
+   user_list:
+    - user01
+    - user02
+    - user03
+  tasks:
+  - name: update apt cache
+    apt: update_cache=yes cache_valid_time=3600
+  - name: Install packages on the host servers
+    package: name={{item}} state=present
+    loop:
+     - apache2
+     - mysql-server
+     - php-mysql
+     - php
+     - libapache2-mod-php
+     - python3-mysqldb
+  - name: Create users on host servers
+    user: name={{item}} state=present
+    loop: "{{user_list}}"
+
+=======================
+
+Demo on tags:
+
+========================================================
+vim playbooktags.yml
+
+- name: Tags in Ansible
+  hosts: webserver
+  become: true
+  tasks:
+  - name: Create a file
+    file: name=/tmp/ansible_file state=touch
+    tags: createfile
+  - name: Create a file2
+    file: name=/tmp/ansible_file2 state=touch
+    tags: createfile
+  - name: start apache2
+    service: name=apache2 state=started
+    tags: startservice
+  - name: update apt-get
+    command: apt-get update
+    tags: execmd
+  - name: Execute a command
+    command: hostname -s
+    register: output_output
+    tags: execmd
+  - name: Install a git package
+    package: name=git state=present
+    tags: install
+  - name: Start a service
+    service: name=apache2 state=started
+    tags: startservice
+
+
+
+# ansible-playbook  tagsplaybook.yml --tags createfile
+# ansible-playbook  tagsplaybook.yml --tags createfile,execmd
+# ansible-playbook  tagsplaybook.yml --skip-tags execmd
+# ansible-playbook playbooktags.yml --tags untagged
+# ansible-playbook playbooktags.yml --tags tagged
+
+========================================================
+
+Jinja2 template:
+===================================
+
+# vim myapp.conf.j2
+
+# This is my first jinja2 template
+
+These are my app configuration
+Location of the file: /etc
+myconfiguration that will be unique to the server is:
+
+local_ip = {{ ansible_default_ipv4["address"] }}
+host_nodeName = {{ ansible_nodename }}
+host_os_family = {{ ansible_os_family }}
+host_domain = {{ ansible_domain }}
+
+Created by : {{ author }}
+
+
+Save the file (:wq!)
+
+# vim playbookJinja2.yml
+
+
+- hosts: webserver
+  become: true
+  vars:
+   author: Ansible
+  tasks:
+  - name: Copy the myapp.conf.j2 template  on host servers
+    template:
+     src: myapp.conf.j2
+     dest: /etc/myapp.conf
+
+Save file and execute.
+===========================================================
+
+Ansible Roles:
+==============================================
+Check you are in ansiuser home directory
+
+# cd
+
+# mkdir roles
+# cd roles
+Create a role apache using ansible-galaxy
+
+#  ansible-galaxy init apache
+
+# cd apache
+
+Delete the directory that  are not needed for this scenario
+
+# rm -rf README.md meta tests
+
+# sudo vim tasks/main.yml
+ - name: update apt repo
+   command: apt-get update
+ - name: Check apache2 is present or not
+   package: name={{pkg_name[0]}} state=present
+ - name: Start the apache2 server
+   service: name={{pkg_name[0]}} state=started
+ - name: Deploy the index.html template
+   template: src=index.html.j2 dest=/var/www/html/index.html
+   notify: Restart apache2 server
+
+Save the file
+
+Write the vars section for the playbook:
+=========================
+# sudo vim vars/main.yml
+
+Press i to insert
+
+   email:
+    - admin@gmail.com
+   pkg_name:
+    - apache2
+    - httpd
+
+Save the file
+
+Write the template section:
+==========================
+
+#  sudo vim templates/index.html.j2
+
+
+This is jinja2 template
+
+The webserver is running on {{ ansible_hostname }}
+The system admin contact email is: {{email}}
+
+Save the file.
+
+=============================
+Enter data in handlers section
+=============================
+
+# sudo vim handlers/main.yml
+
+  - name: Restart apache2 server
+    service: name={{pkg_name[0]}} state=restarted
+
+
+Save the file.
+
+===============================
+
+After this come out in the directory where you are writing playbooks
+
+Note: the playbook that is calling the role is written in directory other than Roles directory
+
+
+Execute the command
+
+# cd
+
+# vim playbookRole1.yml
+
+
+- hosts: webserver
+  become: true
+  roles:
+   - apache
+
+
+Save the file
+
+Execute the playbook, which inturn executes the role.
+========================================
+
+Dynamic Inventory:
+====================
+
+install amazon aws on lab
+
+# ansible-galaxy collection install amazon.aws
+
+Install boto3 and botocore
+
+# sudo apt install python3-pip -y
+
+# pip3 install boto3
+
+Update ansible.cfg file with plugin details
+
+# cd /etc/ansible
+
+# sudo vim ansible.cfg
+
+Insert below text
+
+
+[defaults]
+
+enable_plugins = aws_ec2
+
+Save the file(:wq!)
+
+
+Create the inventory file now:
+
+# sudo vim aws_ec2.yml
+
+Add the below text
+
+plugin: amazon.aws.aws_ec2
+regions:
+ - us-east-1
+
+Save the file (:wq!)
+
+
+
+On the Ansible Lab:
+
+Create access key and secret key and save it as environment variables:
+
+ export AWS_ACCESS_KEY_ID=AKIAUJU24ZR333KAYIEA
+ export AWS_SECRET_ACCESS_KEY=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
+
+Now execute the command to list the inventory:
+
+ansible-inventory -i /etc/ansible/aws_ec2.yml --list
+
+You will see the inventory information under 
+
+"aws_ec2": {
+        "hosts": [
+            "ec2-34-227-191-8.compute-1.amazonaws.com",
+            "ec2-52-90-18-208.compute-1.amazonaws.com",
+            "ec2-54-158-3-77.compute-1.amazonaws.com",
+            "ec2-54-196-42-97.compute-1.amazonaws.com",
+            "ec2-54-234-48-31.compute-1.amazonaws.com",
+            "ec2-54-242-128-168.compute-1.amazonaws.com"
+        ]
+    }
+}
+
+===========================
+
+In order to execute any modules on the inventory, we have to do the SSH connection
+
+Take an Ec2 machine and perform the 4 steps of ansiuser creation and ssh connection
+
+# sudo adduser ansiuser
+
+# vim /etc/ssh/sshd_config
+
+# vim /etc/sudoers
+
+# systemctl restart sshd
+
+
+Now go to ACM machine and copy the ssh key and use publci key fo AWS ec2 instance
+
+# ssh-copy-id -i ansiuser@publicipEc2
+
+It will be successfull
+
+
+==========================================
+Ansible Vault:
+=========================================
+
+Demo1: Use ansible vault to create a new Encrypted file
+========
+
+# ansible-vault create vault1.yml
+
+Give:
+
+New Vault password:123
+Confirm password: 123
+It open the vim editor for the file, 
+Press i to insert some text like : Confidential data!
+
+Save the file(:wq!)
+
+Now if you will see the contents of the file, they will be encrypted
+
+# cat vault1.yml
+
+Demo 2: User ansible vault command to view the vault1.yml file
+================================
+
+# ansible-vault view vault1.yml
+
+Give the password: 123
+
+Demo3: Create an existing file and ask ansible-vault to encrypt it
+===============================
+
+# echo "file text to be encrypt" > encrypt_me.txt
+
+Use ansible vault command to encrypt:
+
+# ansible-vault encrypt encrypt_me.txt
+
+Give: 
+New Vault password: 123
+Confirm New Vault password: 123
+
+Encryption successful
+
+# cat  encrypt_me.txt
+
+Demo 4: Decrypt the text of the encrypted file
+==============================
+
+# ansible-vault decrypt encrypt_me.txt
+
+# cat encrypt_me.txt
+
+Demo 5: Edit an existing encrypted file”
+===========================
+
+# ansible-vault edit vault1.yml
+# enter password :123
+
+It will open the file, press i to insert the new data
+Save the file.
+File will be encrypted with new changes also
+Demo 6: change the password of encrypted file
+====================================
+#  ansible-vault rekey vault1.yml
+
+Give : 
+Vault password: 123
+New Vault password: 12345
+Confirm New Vault password: 12345
+
+Rekey successful
+
+Demo 7: Store the vault password in a file and pass the file name with ansible-vault command
+
+========================================
+
+# echo "file text to be encrypt" > encrypt_me.txt
+
+Use ansible vault command to encrypt:
+
+# ansible-vault encrypt encrypt_me.txt
+
+Give: 
+New Vault password: 12345
+Confirm New Vault password: 12345
+
+Encryption successful
+
+Save the password in new file
+
+# echo "12345" > my_passwd_file
+
+# ansible-vault view --vault-password-file my_passwd_file encrypt_me.txt
+
+Displays data of the file.
